@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 	"io/ioutil"
-	"bytes"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -126,8 +125,6 @@ func UnwrapJson(r *http.Request) (a User){
 	if readErr != nil {
 		log.Fatal(readErr)
 	}
-	
-	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
 	
 	data := json.Unmarshal(body, &a)
 	if data != nil {
