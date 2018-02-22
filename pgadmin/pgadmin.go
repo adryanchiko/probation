@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
-	"io/ioutil"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -38,6 +38,10 @@ type User struct {
 
 type userHandler struct {
 	db *sql.DB
+}
+
+type collab interface {
+	UnwrapJson(r *http.Request)
 }
 
 var outArr []User
@@ -84,12 +88,12 @@ func (u *userHandler) InsertUser(w http.ResponseWriter, r *http.Request) {
 
 	var a User
 
-	a = UnwrapJson(r)
+	UnwrapJson(r, &a)
 
 	insert, err := u.db.Query("INSERT INTO account.user VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", a.Userid, a.Tenantid, a.Email, a.Fullname, a.Salt, a.Password, a.Locked, a.Created, a.Modified, a.Avatar)
 	checkErr(err)
 	fmt.Println(insert)
-	
+
 }
 
 //Update User by ID
@@ -100,8 +104,8 @@ func (u *userHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	checkErr(err)
 
 	var a User
-	
-	a = UnwrapJson(r)
+
+	UnwrapJson(r, &a)
 
 	update, err := u.db.Query("UPDATE account.user SET fullname=$1 WHERE user_id=$2", a.Fullname, uID)
 	checkErr(err)
@@ -120,18 +124,17 @@ func (u *userHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(deluser)
 }
 
-func UnwrapJson(r *http.Request) (a User){
+func UnwrapJson(r *http.Request, a interface{}) {
 	body, readErr := ioutil.ReadAll(r.Body)
 	if readErr != nil {
 		log.Fatal(readErr)
 	}
-	
+
 	data := json.Unmarshal(body, &a)
 	if data != nil {
 		fmt.Println("error:", data)
 	}
 	fmt.Println(a)
-	return a
 }
 
 func main() {
