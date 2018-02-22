@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"io/ioutil"
+	"bytes"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -26,9 +28,9 @@ type User struct {
 	Userid   int           `json:"user_id"`
 	Tenantid int64         `json:"tenant_id"`
 	Email    string        `json:"email"`
-	Fullname string        `json:"full_name"`
-	Salt     string        `json:"-"`
-	Password string        `json:"-"`
+	Fullname string        `json:"fullname"`
+	Salt     string        `json:"salt"`
+	Password string        `json:"password"`
 	Locked   bool          `json:"locked"`
 	Created  time.Time     `json:"created"`
 	Modified time.Time     `json:"modified"`
@@ -78,20 +80,49 @@ func (u *userHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 func (u *userHandler) InsertUser(w http.ResponseWriter, r *http.Request) {
 
-	params := mux.Vars(r)
-	uID, _ := strconv.Atoi(params["user_id"])
-	tID, _ := strconv.Atoi(params["tenant_id"])
-	email, _ := params["email"]
-	fullname, _ := params["full_name"]
-	salt, _ := params["salt"]
-	pass, _ := params["password"]
-	created := time.Now()
-	modified := time.Now()
+	var a User
 
-	insert, err := u.db.Query("INSERT INTO account.user VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", uID, tID, email, fullname, salt, pass, false, created, modified, nil)
+	body, readErr := ioutil.ReadAll(r.Body)
+	if readErr != nil {
+		log.Fatal(readErr)
+	}
+	
+	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
+	
+	data := json.Unmarshal(body, &a)
+	if data != nil {
+		fmt.Println("error:", data)
+	} else {
+		insert, err := u.db.Query("INSERT INTO account.user VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", a.Userid, a.Tenantid, a.Email, a.Fullname, a.Salt, a.Password, a.Locked, a.Created, a.Modified, a.Avatar)
+		checkErr(err)
+		fmt.Println(insert)
+	}
+	
+}
+
+func (u *userHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+
+	params := mux.Vars(r)
+	uID, err := strconv.Atoi(params["user_id"])
 	checkErr(err)
 
-	json.NewEncoder(w).Encode(insert)
+	var a User
+	
+	body, readErr := ioutil.ReadAll(r.Body)
+	if readErr != nil {
+		log.Fatal(readErr)
+	}
+	
+	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
+	
+	data := json.Unmarshal(body, &a)
+	if data != nil {
+		fmt.Println("error:", data)
+	} else {
+		update, err := u.db.Query("UPDATE account.user SET fullname=$1 WHERE user_id=$2", a.Fullname, uID)
+		checkErr(err)
+		fmt.Print(update)
+	}
 }
 
 func (u *userHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -113,8 +144,9 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/user", u.GetAllUser).Methods("GET")
 	router.HandleFunc("/user/{user_id}", u.GetUserByID).Methods("GET")
-	router.HandleFunc("/user/{user_id}&{tenant_id}&{email}&{full_name}&{salt}&{password}", u.InsertUser).Methods("POST")
+	router.HandleFunc("/user", u.InsertUser).Methods("POST")
 	router.HandleFunc("/user/{user_id}", u.DeleteUser).Methods("DELETE")
+	router.HandleFunc("/user/{user_id}", u.UpdateUser).Methods("PUT")
 	log.Fatal(http.ListenAndServe(":8000", router))
 
 	defer u.db.Close()
