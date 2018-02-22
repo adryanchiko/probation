@@ -78,8 +78,8 @@ func (u *userHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
-	var u userHandler
-	u.conndb()
+	db := conndb()
+	u := &userHandler{db}
 
 	router := mux.NewRouter()
 	router.HandleFunc("/user", u.GetAllUser).Methods("GET")
@@ -89,17 +89,18 @@ func main() {
 	defer u.db.Close()
 }
 
-func (u *userHandler) conndb() {
+func conndb() (db *sql.DB){
 	psqlInfo := fmt.Sprintf("host = %s  port = %d  user = %s  password = %s  dbname = %s  sslmode = %s", host, port, userdb, password, dbname, sslmode)
 
 	var err error
-	u.db, err = sql.Open("postgres", psqlInfo)
+	db, err = sql.Open("postgres", psqlInfo)
 	checkErr(err)
 
-	err = u.db.Ping()
+	err = db.Ping()
 	checkErr(err)
 
 	fmt.Println("Succesfully Connected")
+	return db
 }
 
 func checkErr(err error) {
