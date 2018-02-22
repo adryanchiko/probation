@@ -43,6 +43,7 @@ type userHandler struct {
 
 var outArr []User
 
+//Show All User
 func (u *userHandler) GetAllUser(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := u.db.Query("SELECT * FROM account.user")
@@ -58,6 +59,7 @@ func (u *userHandler) GetAllUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(outArr)
 }
 
+//Get User by ID
 func (u *userHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
@@ -78,28 +80,20 @@ func (u *userHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(check)
 }
 
+//Insert User
 func (u *userHandler) InsertUser(w http.ResponseWriter, r *http.Request) {
 
 	var a User
 
-	body, readErr := ioutil.ReadAll(r.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-	
-	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
-	
-	data := json.Unmarshal(body, &a)
-	if data != nil {
-		fmt.Println("error:", data)
-	} else {
-		insert, err := u.db.Query("INSERT INTO account.user VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", a.Userid, a.Tenantid, a.Email, a.Fullname, a.Salt, a.Password, a.Locked, a.Created, a.Modified, a.Avatar)
-		checkErr(err)
-		fmt.Println(insert)
-	}
+	a = UnwrapJson(r)
+
+	insert, err := u.db.Query("INSERT INTO account.user VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", a.Userid, a.Tenantid, a.Email, a.Fullname, a.Salt, a.Password, a.Locked, a.Created, a.Modified, a.Avatar)
+	checkErr(err)
+	fmt.Println(insert)
 	
 }
 
+//Update User by ID
 func (u *userHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
@@ -108,23 +102,14 @@ func (u *userHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	var a User
 	
-	body, readErr := ioutil.ReadAll(r.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-	
-	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
-	
-	data := json.Unmarshal(body, &a)
-	if data != nil {
-		fmt.Println("error:", data)
-	} else {
-		update, err := u.db.Query("UPDATE account.user SET fullname=$1 WHERE user_id=$2", a.Fullname, uID)
-		checkErr(err)
-		fmt.Print(update)
-	}
+	a = UnwrapJson(r)
+
+	update, err := u.db.Query("UPDATE account.user SET fullname=$1 WHERE user_id=$2", a.Fullname, uID)
+	checkErr(err)
+	fmt.Print(update)
 }
 
+//Delete User by ID
 func (u *userHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
@@ -134,6 +119,22 @@ func (u *userHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	checkErr(err)
 
 	json.NewEncoder(w).Encode(deluser)
+}
+
+func UnwrapJson(r *http.Request) (a User){
+	body, readErr := ioutil.ReadAll(r.Body)
+	if readErr != nil {
+		log.Fatal(readErr)
+	}
+	
+	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
+	
+	data := json.Unmarshal(body, &a)
+	if data != nil {
+		fmt.Println("error:", data)
+	}
+	fmt.Println(a)
+	return a
 }
 
 func main() {
