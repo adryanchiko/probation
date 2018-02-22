@@ -35,13 +35,15 @@ type User struct {
 	Avatar   sql.NullInt64 `json:"avatar"`
 }
 
-var db *sql.DB
+type userHandler struct {
+	db *sql.DB
+}
+
 var outArr []User
 
-func GetAllUser(w http.ResponseWriter, r *http.Request) {
-	db := conndb()
+func (u *userHandler) GetAllUser(w http.ResponseWriter, r *http.Request) {
 
-	rows, err := db.Query("SELECT * FROM account.user")
+	rows, err := u.db.Query("SELECT * FROM account.user")
 	checkErr(err)
 
 	var a User
@@ -52,18 +54,15 @@ func GetAllUser(w http.ResponseWriter, r *http.Request) {
 		outArr = append(outArr, a)
 	}
 	json.NewEncoder(w).Encode(outArr)
-	defer db.Close()
 }
 
-func GetUserByID(w http.ResponseWriter, r *http.Request) {
-
-	db := conndb()
+func (u *userHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 	uID, err := strconv.Atoi(params["user_id"])
 	checkErr(err)
 
-	rows, err := db.Query("SELECT * FROM account.user WHERE user_id=$1", uID)
+	rows, err := u.db.Query("SELECT * FROM account.user WHERE user_id=$1", uID)
 	checkErr(err)
 
 	var a User
@@ -75,30 +74,32 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 		check = append(check, a)
 	}
 	json.NewEncoder(w).Encode(check)
-	defer db.Close()
 }
 
 func main() {
 
-	conndb()
+	var u userHandler
+	u.conndb()
 
 	router := mux.NewRouter()
-	router.HandleFunc("/user", GetAllUser).Methods("GET")
-	router.HandleFunc("/user/{user_id}", GetUserByID).Methods("GET")
+	router.HandleFunc("/user", u.GetAllUser).Methods("GET")
+	router.HandleFunc("/user/{user_id}", u.GetUserByID).Methods("GET")
 	log.Fatal(http.ListenAndServe(":8000", router))
+
+	defer u.db.Close()
 }
 
-func conndb() (db *sql.DB) {
+func (u *userHandler) conndb() {
 	psqlInfo := fmt.Sprintf("host = %s  port = %d  user = %s  password = %s  dbname = %s  sslmode = %s", host, port, userdb, password, dbname, sslmode)
 
-	db, err := sql.Open("postgres", psqlInfo)
+	var err error
+	u.db, err = sql.Open("postgres", psqlInfo)
 	checkErr(err)
 
-	err = db.Ping()
+	err = u.db.Ping()
 	checkErr(err)
 
 	fmt.Println("Succesfully Connected")
-	return db
 }
 
 func checkErr(err error) {
